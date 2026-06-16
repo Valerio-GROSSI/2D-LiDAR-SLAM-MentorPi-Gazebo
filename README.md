@@ -1,4 +1,4 @@
-# 2D-LiDAR-SLAM-MentorPi-Gazebo
+# 2D LiDAR SLAM MentorPi Gazebo
 
 This project focuses on testing, in simulation, different localization and mapping approaches for a mobile robot.
 
