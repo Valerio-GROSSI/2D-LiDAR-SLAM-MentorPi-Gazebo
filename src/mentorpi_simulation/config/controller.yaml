@@ -1,0 +1,42 @@
+/controller_manager:
+  ros__parameters:
+    update_rate: 50
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    diff_drive_controller:
+      type: diff_drive_controller/DiffDriveController
+    imu_broadcaster:
+      type: imu_sensor_broadcaster/IMUSensorBroadcaster
+
+/imu_broadcaster:
+  ros__parameters:
+    tf_frame_prefix_enable: false
+    use_namespace_as_sensor_name_prefix: true
+    sensor_name: imu
+    frame_id: imu_link
+    static_covariance_orientation: [1.9e-3, 0.0, 0.0, 0.0, 1.9e-3, 0.0, 0.0, 0.0, 1.9e-3] # Values taken from datasheet
+    static_covariance_angular_velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0e-3] # Values measured experimentally
+    static_covariance_linear_acceleration: [6.4e-2, 0.0, 0.0, 0.0, 2.2e-2, 0.0, 0.0, 0.0, 0.0] # Values measured experimentally
+
+/diff_drive_controller:
+  ros__parameters:
+    left_wheel_names: ["wheel_lf_Joint", "wheel_lb_Joint"]
+    right_wheel_names: ["wheel_rf_Joint", "wheel_rb_Joint"]
+
+    wheel_separation: 0.15182
+    wheel_radius: 0.0325
+
+    base_frame_id: base_footprint
+    odom_frame_id: odom
+
+    publish_rate: 50.0
+    cmd_vel_timeout: 0.5
+
+    publish_limited_velocity: true
+    publish_wheel_data: true
+
+    enable_odom_tf: false
+
+    pose_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
+    twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
