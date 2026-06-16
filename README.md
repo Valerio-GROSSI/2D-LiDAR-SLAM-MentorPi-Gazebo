@@ -28,8 +28,8 @@ A demonstration video is available on YouTube:
 <br>
 
 <p align="center">
-  <b>2D LiDAR SLAM on Kalman inputs - </b><br>
-  <img src="./slam_demo.gif" width="80%" />
+  <b> 2D LiDAR SLAM on Kalman inputs </b><br>
+  <img src="./slam_demo.gif" width="100%" />
 </p>
 
 <br>
