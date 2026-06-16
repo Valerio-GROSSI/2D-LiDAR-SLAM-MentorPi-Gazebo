@@ -4,10 +4,10 @@ This project focuses on testing, in simulation, different localization and mappi
 
 The methods explored include:
 
-Differential odometry alone, with 3D point accumulation for map building
-Differential odometry used as input to a SLAM algorithm
-Kalman filtering for sensor fusion between differential odometry and IMU measurements, with 3D point accumulation for map building
-Kalman filtering for sensor fusion between differential odometry and IMU measurements, used as input to a SLAM algorithm
+- Differential odometry alone, with 3D point accumulation for map building
+- Differential odometry used as input to a SLAM algorithm
+- Kalman filtering for sensor fusion between differential odometry and IMU measurements, with 3D point accumulation for map building
+- Kalman filtering for sensor fusion between differential odometry and IMU measurements, used as input to a SLAM algorithm
 
 The robot used in this project is the Hiwonder MentorPi Mecanum, configured and used as a differential-drive robot. The simulation environment is Gazebo.
 
