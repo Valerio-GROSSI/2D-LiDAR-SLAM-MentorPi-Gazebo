@@ -21,9 +21,7 @@ ros2 launch mentorpi_simulation display.launch.py use_rviz:=True
 
 ## Results
 
-A demonstration video is available on YouTube:
-
-[2D LiDAR SLAM on a Simulated Mobile Robot](https://www.youtube.com/watch?v=UPGaf2nS698)
+A demonstration video is available on YouTube: [2D LiDAR SLAM on a Simulated Mobile Robot](https://www.youtube.com/watch?v=UPGaf2nS698)
 
 <br>
 
