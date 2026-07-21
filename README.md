@@ -11,7 +11,7 @@ The methods explored include:
 
 The robot used in this project is the Hiwonder MentorPi Mecanum, configured and used as a differential-drive robot. The simulation environment is Gazebo.
 
-The next step is to test the system on the real robot hardware, using the motor drivers and onboard sensors.
+The current stage involves testing the system on the robot's actual hardware, using the motor drivers and onboard sensors.
 
 ## How to Run
 
