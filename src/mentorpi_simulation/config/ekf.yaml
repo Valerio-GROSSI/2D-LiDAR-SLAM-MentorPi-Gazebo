@@ -15,7 +15,7 @@
       publish_tf: true
       publish_acceleration: false
 
-      odom0: /diff_drive_controller/odom
+      odom0: /odom_raw #/odom_raw /mecanum_drive_controller/odometry /diff_drive_controller/odom
       odom0_config: [false, false, false, # X , Y , Z
                      false, false, false, # roll , pitch ,yaw
                      true, true, false, # dX , dY , dZ
@@ -27,7 +27,7 @@
       odom0_differential: false
       odom0_relative: true
 
-      imu0: /imu_broadcaster/imu
+      imu0: /imu_broadcaster/imu #/ros_robot_controller/imu_raw /imu_broadcaster/imu 
       imu0_config: [false, false, false, # X , Y , Z
                     false, false, true, # roll , pitch ,yaw
                     false, false, false, # dX , dY , dZ

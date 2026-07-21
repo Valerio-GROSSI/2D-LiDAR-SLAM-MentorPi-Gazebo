@@ -60,33 +60,57 @@ def launch_setup(context):
         condition=IfCondition(use_rviz),
     )
 
+    odom_publisher_node = Node(
+        package="mentorpi_simulation",
+        executable="odom_publisher",
+        output="screen",
+        name="odom_publisher",
+    )
+
+    # teleop_twist_keyboard_node = Node(
+    #     package="teleop_twist_keyboard",
+    #     executable="teleop_twist_keyboard",
+    #     output="screen",
+    #     name="teleop_twist_keyboard",
+    #     # remappings=[('cmd_vel', 'cmd_vel'),]
+    # )
+
+    joystick_launch = IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    PathJoinSubstitution([
+                        FindPackageShare("mentorpi_simulation"),
+                        "launch",
+                        "joystick.launch.py",
+                    ])
+                ),
+                launch_arguments={
+                }.items(),
+        )
+
     return [
         rsp_node,
         joint_state_publisher_gui_node,
         rviz_node,
+        odom_publisher_node,
+        # teleop_twist_keyboard_node,
+        joystick_launch
     ]
-
     
 def generate_launch_description():
     use_sim = LaunchConfiguration('use_sim')
 
-    use_gui_arg = DeclareLaunchArgument('use_gui', default_value='false')
-    use_rviz_arg = DeclareLaunchArgument('use_rviz', default_value='false')
+    use_gui_arg = DeclareLaunchArgument('use_gui', default_value='true')
+    use_rviz_arg = DeclareLaunchArgument('use_rviz', default_value='true')
     rviz_config_arg = DeclareLaunchArgument('rviz_config', default_value=PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"rviz","config.rviz"]))
-    use_sim_arg = DeclareLaunchArgument('use_sim', default_value='true')
-    declare_headless_arg = DeclareLaunchArgument('headless', default_value='False', description='Run Gazebo Ignition in the headless mode')
-    world_config_arg = DeclareLaunchArgument('world_config', 
-                                             default_value=PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"world","empty_with_plugins_obstacles.sdf"]),
-                                             description='Path to SDF world file')
+    use_sim_arg = DeclareLaunchArgument('use_sim', default_value='false')
+
     return LaunchDescription([
         use_gui_arg,
         use_rviz_arg,
         rviz_config_arg,
         use_sim_arg,
-        declare_headless_arg,
-        world_config_arg,
         SetParameter(name="use_sim_time", value=use_sim),
-        OpaqueFunction(function = launch_setup),
+        OpaqueFunction(function = launch_setup)
     ])
 
 if __name__ == "__main__":

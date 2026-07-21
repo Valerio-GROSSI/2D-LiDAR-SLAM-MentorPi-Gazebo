@@ -1,3 +1,6 @@
+import yaml
+import tempfile
+
 from launch import LaunchDescription, LaunchService
 from launch.actions import DeclareLaunchArgument, OpaqueFunction, IncludeLaunchDescription, GroupAction, TimerAction
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
@@ -39,20 +42,39 @@ def launch_setup(context):
         ]
     )
 
-    # robot_description = {"robot_description": robot_description_content}
-
     robot_description = {"robot_description": ParameterValue(robot_description_content, value_type=str)}
+
+    odom_tf_true_override = {
+            'diff_drive_controller': {'ros__parameters': {'enable_odom_tf': True}},
+            'mecanum_drive_controller': {'ros__parameters': {'enable_odom_tf': True}}
+        }
+    odom_tf_true_override_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+    yaml.dump(odom_tf_true_override, odom_tf_true_override_file)
+    odom_tf_true_override_file.close()
+    odom_tf_true_override_path = odom_tf_true_override_file.name
 
     ekf_config = PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"config","ekf.yaml"])
 
     slam_toolbox_config = PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"config","slam_toolbox.yaml"])
     
     nav2_params = PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"config","nav2_params.yaml"])
+    
+    joystick_control_node = Node(
+        package='mentorpi_simulation',
+        executable='joystick_control',
+        name='joystick_control',
+        output='screen',
+        parameters=[
+            {'max_linear': 0.5,
+             'max_angular': 2.0}
+        ],
+        remappings=[('controller/cmd_vel', 'controller/cmd_vel')] # controller/cmd_vel #/mecanum_drive_controller/reference #/diff_drive_controller/cmd_vel
+    )
 
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["joint_state_broadcaster"],
+        arguments=["joint_state_broadcaster", "--controller-manager-timeout", "30"],
         output="screen",
     )
 
@@ -63,27 +85,82 @@ def launch_setup(context):
         output="screen",
     )
 
+    mecanum_drive_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["mecanum_drive_controller", "--controller-manager-timeout", "30"],
+        output="screen",
+    )
+
+    mecanum_tf_relay = Node(
+        package='topic_tools',
+        executable='relay',
+        name='mecanum_tf_relay',
+        arguments=['/mecanum_drive_controller/tf_odometry', '/tf'],
+        output='screen',
+    )
+
+    wheel_velocity_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["wheel_velocity_controller", "--controller-manager-timeout", "30"],
+        output="screen",
+    )
+
+    motors_state_gaz_bridge = Node(
+        package="mentorpi_simulation",
+        executable="motors_state_gaz_bridge",
+        name='motors_state_gaz_bridge',
+        output='screen',
+    )
+
+    ros_robot_controller_node = Node(
+        package='ros_robot_controller',
+        executable='ros_robot_controller',
+        name='ros_robot_controller',
+        output='screen',
+    )
+
     imu_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["imu_broadcaster"],
+        arguments=["imu_broadcaster", "--controller-manager-timeout", "30"],
         output="screen",
     )
 
     joint_state_broadcaster_delayed = TimerAction(
-        period=4.0,
+        period=12.0,
         actions=[joint_state_broadcaster_spawner],
     )
 
     diff_drive_controller_delayed = TimerAction(
-        period=8.0,
+        period=16.0,
         actions=[diff_drive_controller_spawner],
     )
 
+    mecanum_drive_controller_delayed = TimerAction(
+        period=16.0,
+        actions=[mecanum_drive_controller_spawner],
+    )
+
+    wheel_velocity_controller_delayed = TimerAction(
+        period=16.0,
+        actions=[wheel_velocity_controller_spawner],
+    )
+
     imu_broadcaster_delayed = TimerAction(
-        period=12.0,
+        period=20.0,
         actions=[imu_broadcaster_spawner],
     )
+
+    controllers_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["joint_state_broadcaster", "imu_broadcaster", "wheel_velocity_controller"]  #wheel_velocity_controller #mecanum_drive_controller #diff_drive_controller
+                + (["-p", odom_tf_true_override_path] if False else []) #bool a adapter
+                + ["--controller-manager-timeout", "30"],
+        output="screen",
+        )
 
     rsp_node = Node(
         package="robot_state_publisher",
@@ -152,6 +229,16 @@ def launch_setup(context):
         output="screen",
     )
 
+    odom_publisher_node = Node(
+        package="mentorpi_simulation",
+        executable="odom_publisher",
+        output="screen",
+        name="odom_publisher",
+        parameters=[{'model': 'differential'},  #a adapter
+                    {'pub_tf': True}],  #a adapter
+        remappings=[('cmd_vel', 'controller/cmd_vel')]  #controller/cmd_vel #/mecanum_drive_controller/reference #/diff_drive_controller/cmd_vel
+    )
+
     ground_truth_pose_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
@@ -170,9 +257,12 @@ def launch_setup(context):
         package="robot_localization",
         executable="ekf_node",
         name="ekf_filter_node",
-        parameters=[ekf_config],
+        parameters=[ekf_config,
+                    {'odom0': '/odom_raw'}, #/odom_raw /mecanum_drive_controller/odometry /diff_drive_controller/odom
+                    {'imu0': '/imu_broadcaster/imu'}, #/ros_robot_controller/imu_raw /imu_broadcaster/imu 
+                    {'publish_tf': True}],# a adapter
         output="screen",
-    )
+    ) #/odometry/filtered /set_pose
 
     lidar_scan_bridge = Node(
         package="ros_gz_bridge",
@@ -180,7 +270,7 @@ def launch_setup(context):
         name="lidar_scan_bridge",
         arguments=["/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan"],
         output="screen",
-    )
+    ) #/scan
 
     slam_toolbox_node = Node(
         package="slam_toolbox",
@@ -231,22 +321,29 @@ def launch_setup(context):
     )
 
     return [
+        joystick_control_node,
         rsp_node,
-        joint_state_publisher_gui_node,
+        # joint_state_publisher_gui_node,
         rviz_node,
         gz_sim,
         gz_spawn_entity,
         clock_bridge,
-        ground_truth_pose_bridge,
-        joint_state_broadcaster_delayed,
-        diff_drive_controller_delayed,
-        imu_broadcaster_delayed,
-        robot_localization_node,
-        #ground_truth_tf_odom_bridge,
+        # joint_state_broadcaster_delayed,
+        # diff_drive_controller_delayed,
+        # mecanum_drive_controller_delayed,
+        # imu_broadcaster_delayed,
+        controllers_spawner,
+        # mecanum_tf_relay,
+        odom_publisher_node,
+        motors_state_gaz_bridge,
+        ros_robot_controller_node,
+        # robot_localization_node,
+        # ground_truth_pose_bridge,
+        # ground_truth_tf_odom_bridge,
         lidar_scan_bridge,
-        slam_toolbox_node,
-        slam_lifecycle_manager_delayed,
-        nav2_delayed_launch,
+        # slam_toolbox_node,
+        # slam_lifecycle_manager_delayed,
+        # nav2_delayed_launch,
     ]
 
     
@@ -254,7 +351,7 @@ def generate_launch_description():
     use_sim = LaunchConfiguration('use_sim')
 
     use_gui_arg = DeclareLaunchArgument('use_gui', default_value='false')
-    use_rviz_arg = DeclareLaunchArgument('use_rviz', default_value='false')
+    use_rviz_arg = DeclareLaunchArgument('use_rviz', default_value='true')
     rviz_config_arg = DeclareLaunchArgument('rviz_config', default_value=PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"rviz","config.rviz"]))
     use_sim_arg = DeclareLaunchArgument('use_sim', default_value='true')
     declare_headless_arg = DeclareLaunchArgument('headless', default_value='False', description='Run Gazebo Ignition in the headless mode')

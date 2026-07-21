@@ -43,7 +43,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'ground_truth_tf_odom_broadcaster = ground_truth_tf_odom_broadcaster.ground_truth_tf_odom_broadcaster:main'
+            'ground_truth_tf_odom_broadcaster = ground_truth_tf_odom_broadcaster.ground_truth_tf_odom_broadcaster:main',
+            'odom_publisher = odom_publisher.odom_publisher_node:main',
+            'joystick_control = joystick_control.joystick_control_node:main',
+            'motors_state_gaz_bridge = motors_state_gaz_bridge.motors_state_gaz_bridge:main' 
             ],
         },
 )

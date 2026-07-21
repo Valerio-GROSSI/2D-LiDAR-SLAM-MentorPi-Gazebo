@@ -1,11 +1,15 @@
 /controller_manager:
   ros__parameters:
-    update_rate: 50
+    update_rate: 250
 
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
     diff_drive_controller:
       type: diff_drive_controller/DiffDriveController
+    mecanum_drive_controller:
+      type: mecanum_drive_controller/MecanumDriveController
+    wheel_velocity_controller:
+      type: velocity_controllers/JointGroupVelocityController
     imu_broadcaster:
       type: imu_sensor_broadcaster/IMUSensorBroadcaster
 
@@ -40,3 +44,34 @@
 
     pose_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
     twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
+
+mecanum_drive_controller:
+  ros__parameters:
+    front_left_wheel_command_joint_name: "wheel_lf_Joint"
+    front_right_wheel_command_joint_name: "wheel_rf_Joint"
+    rear_left_wheel_command_joint_name: "wheel_lb_Joint"
+    rear_right_wheel_command_joint_name: "wheel_rb_Joint"
+    front_left_wheel_state_joint_name: "wheel_lf_Joint"
+    front_right_wheel_state_joint_name: "wheel_rf_Joint"
+    rear_left_wheel_state_joint_name: "wheel_lb_Joint"
+    rear_right_wheel_state_joint_name: "wheel_rb_Joint"
+    kinematics:
+      wheels_radius: 0.0325
+      wheel_base: 0.15182
+      sum_of_robot_center_projection_on_x_transverse_axis: 0.07591
+      sum_of_robot_center_projection_on_X_Y_axis: 0.22773   # wheel_base/2 + sum_transverse, à vérifier
+    base_frame_id: base_footprint
+    odom_frame_id: odom
+    publish_rate: 50.0
+    cmd_vel_timeout: 0.5
+    enable_odom_tf: true
+    pose_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
+    twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
+
+wheel_velocity_controller:
+  ros__parameters:
+    joints:
+      - wheel_lf_Joint
+      - wheel_rf_Joint
+      - wheel_lb_Joint
+      - wheel_rb_Joint
