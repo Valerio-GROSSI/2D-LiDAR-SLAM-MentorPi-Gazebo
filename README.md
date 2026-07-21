@@ -1,6 +1,6 @@
 # 2D LiDAR SLAM MentorPi Gazebo
 
-This project focuses on testing, in simulation, then in real hardware, different localization and mapping approaches for a mobile robot.
+This project focuses on testing, in simulation and in real hardware, different localization and mapping approaches for a mobile robot.
 
 The methods explored include:
 
