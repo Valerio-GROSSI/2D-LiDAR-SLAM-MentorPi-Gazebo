@@ -1,4 +1,0 @@
-[console_scripts]
-ros_robot_controller = ros_robot_controller.ros_robot_controller_node:main
-ros_robot_controller_gen_commands = ros_robot_controller.ros_robot_controller_gen_commands:main
-
