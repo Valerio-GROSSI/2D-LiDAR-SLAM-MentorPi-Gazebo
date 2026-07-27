@@ -1,0 +1,9 @@
+[submodule "src/depthai-core"]
+	path = src/depthai-core
+	url = https://github.com/luxonis/depthai-core.git
+[submodule "src/depthai-ros"]
+	path = src/depthai-ros
+	url = https://github.com/luxonis/depthai-ros.git
+[submodule "src/ldlidar_stl_ros2"]
+	path = src/ldlidar_stl_ros2
+	url = https://github.com/ldrobotSensorTeam/ldlidar_stl_ros2.git

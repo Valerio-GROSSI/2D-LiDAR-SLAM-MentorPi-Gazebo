@@ -16,7 +16,7 @@ The current stage involves testing the system on the robot's actual hardware, us
 ## How to Run
 
 ```bash
-ros2 launch mentorpi_simulation display.launch.py use_rviz:=True
+ros2 launch mentorpi_simulation display.launch.py
 ```
 
 ## Results

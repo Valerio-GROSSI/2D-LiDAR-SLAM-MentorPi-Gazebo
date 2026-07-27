@@ -43,6 +43,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'ground_truth_pose_stamped_publisher = ground_truth_pose_stamped_publisher.ground_truth_pose_stamped_publisher:main',
             'ground_truth_tf_odom_broadcaster = ground_truth_tf_odom_broadcaster.ground_truth_tf_odom_broadcaster:main',
             'odom_publisher = odom_publisher.odom_publisher_node:main',
             'joystick_control = joystick_control.joystick_control_node:main',
