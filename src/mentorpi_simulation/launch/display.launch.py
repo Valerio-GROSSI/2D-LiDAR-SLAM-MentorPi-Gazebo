@@ -426,25 +426,26 @@ def launch_setup(context):
         output="screen",
     )
 
-    slam_lifecycle_manager = Node(
-        package="nav2_lifecycle_manager",
-        executable="lifecycle_manager",
-        name="lifecycle_manager_slam",
-        output="screen",
-        parameters=[
-            {"use_sim_time": use_sim}, # plus robuste
-            {"autostart": True},
-            {"node_names": ["slam_toolbox"]},
-        ],
-    )
+    ##Utile uniquement pour sync_slam_toolbox_node
+    # slam_lifecycle_manager = Node(
+    #     package="nav2_lifecycle_manager",
+    #     executable="lifecycle_manager",
+    #     name="lifecycle_manager_slam",
+    #     output="screen",
+    #     parameters=[
+    #         {"use_sim_time": use_sim}, # plus robuste
+    #         {"autostart": True},
+    #         {"node_names": ["slam_toolbox"]},
+    #     ],
+    # )
 
-    slam_lifecycle_manager_delayed = TimerAction(
-        period=8.0,
-        actions=[slam_lifecycle_manager],
-    )
+    # slam_lifecycle_manager_delayed = TimerAction(
+    #     period=12.0,
+    #     actions=[slam_lifecycle_manager],
+    # )
 
     nav2_launch = GroupAction([
-            SetRemap(src="/cmd_vel", dst=cmd_vel_topic), # voir consequences #controller/cmd_vel /diff_drive_controller/cmd_vel /mecanum_drive_controller/reference
+            SetRemap(src="cmd_vel", dst="cmd_vel_nav2"), # voir consequences #controller/cmd_vel /diff_drive_controller/cmd_vel /mecanum_drive_controller/reference
             IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(
                         PathJoinSubstitution([
@@ -466,6 +467,15 @@ def launch_setup(context):
         actions=[nav2_launch],
     )
 
+    twist_to_twist_stamped_bridge = Node(
+        package="mentorpi_simulation",
+        executable="twist_to_twist_stamped",
+        name="twist_to_twist_stamped_bridge",
+        remappings=[("/cmd_vel", "cmd_vel_nav2"),
+                    ("/cmd_vel_stamped", cmd_vel_topic)],
+        output="screen",
+    )
+
 
     ##DECLARATION DES GROUPES D'ACTIONS
 
@@ -481,8 +491,8 @@ def launch_setup(context):
             robot_localization_node,
             ld19_node,
             slam_toolbox_node,
-            slam_lifecycle_manager_delayed,
             nav2_delayed_launch,
+            twist_to_twist_stamped_bridge,
         ]
     )
 
@@ -512,8 +522,8 @@ def launch_setup(context):
         lidar_scan_bridge,
         ld19_node,
         slam_toolbox_node,
-        # slam_lifecycle_manager_delayed,
-        # nav2_delayed_launch,
+        nav2_delayed_launch,
+        twist_to_twist_stamped_bridge,
     ]
 
 def generate_launch_description():
