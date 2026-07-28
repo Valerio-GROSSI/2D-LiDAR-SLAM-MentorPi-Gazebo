@@ -24,7 +24,7 @@ def display_launch_parameters(parameters):
 def launch_setup(context):
 
     set_gz_ressource_path = SetEnvironmentVariable(name='GZ_SIM_RESOURCE_PATH', value=[os.environ.get('GZ_SIM_RESOURCE_PATH', ''), os.pathsep, os.path.join(get_package_prefix('mentorpi_simulation'),'share')])
-    #commande bash: export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:$(ros2 pkg prefix mentorpi_simulation)/share
+    #export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:$(ros2 pkg prefix mentorpi_simulation)/share
 
     ##DECLARATION DES PARAMETRES
      
@@ -41,10 +41,11 @@ def launch_setup(context):
     target_class_name = LaunchConfiguration('target_class_name').perform(context)
 
     prior_model = LaunchConfiguration('model').perform(context)
-    controller = LaunchConfiguration('controller')
+    # controller = LaunchConfiguration('controller')
     enable_driver_odom_tf = LaunchConfiguration("enable_driver_odom_tf")
     odom0_from_odom_publisher_node = (LaunchConfiguration("odom0_from_odom_publisher_node").perform(context).lower() == "true")
     # enable_real_odom_tf = LaunchConfiguration("enable_real_odom_tf")
+    perception_framework = LaunchConfiguration("perception_framework").perform(context).lower()
     scan_matching = (LaunchConfiguration("scan_matching").perform(context).lower() == "true")
 
     use_sim_value = (LaunchConfiguration("use_sim").perform(context).lower() == "true")
@@ -104,6 +105,7 @@ def launch_setup(context):
         "imu0_topic": imu0_topic,
         "enable_driver_odom_tf": enable_driver_odom_tf_value,
         "enable_real_odom_tf": enable_real_odom_tf_value,
+        "perception_framework": perception_framework,
         "scan_matching": scan_matching,
         })
 
@@ -126,6 +128,7 @@ def launch_setup(context):
                     "urdf",
                     "mentorpi.urdf.xacro",
                     ]),
+
             " use_sim:=",
             use_sim,
             " controller_config_file:=",
@@ -281,6 +284,21 @@ def launch_setup(context):
         condition=UnlessCondition(use_sim), # A faire: étendre en simulation 
     )
 
+    ##use_sim == True
+    depth_cam_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="depth_cam_bridge",
+        arguments=[
+            "/depth_cam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo",
+            "/depth_cam/depth_image@sensor_msgs/msg/Image[gz.msgs.Image",
+            "/depth_cam/image@sensor_msgs/msg/Image[gz.msgs.Image",
+            "/depth_cam/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked",
+        ],        
+        output="screen",
+        condition=IfCondition(use_sim),
+    )
+
     #joint_state_broadcaster_spawner
     #imu_broadcaster_spawner
     #wheel_velocity_controller_spawner
@@ -315,9 +333,9 @@ def launch_setup(context):
     ##use_sim == True
     controllers_spawner = Node(
         package="controller_manager",
-        executable="spawner",
+        executable="spawner", # les bon parametres du controleur ont été spécifiés lors de la déclaration des paramètres avec un RewrittenYaml sur prior_controller_config_path
         arguments=["joint_state_broadcaster", "imu_broadcaster", controller_value]  #wheel_velocity_controller diff_drive_controller mecanum_drive_controller
-                + ["--controller-manager-timeout", "30"],
+                + ["--controller-manager-timeout", "30"], # redéfinir des paramètres de controller_config_path à ce niveau ne fonctionne pas, d'où l'utilisation d'un RewrittenYaml lors de la déclaration des paramètres
         output="screen",
         condition=IfCondition(use_sim),
         )
@@ -338,8 +356,7 @@ def launch_setup(context):
         output="screen",
         name="odom_publisher",
         parameters=[{'model': model},
-                    # {'pub_tf': False if (use_sim_value and controller_value != 'wheel_velocity_controller') else enable_driver_odom_tf_value}],  #suppose odom_publisher_node non lancé si diff/mecanum controleurs lancés avec enable_driver_odom_tf=true
-                    {'pub_tf': enable_driver_odom_tf_value and (not use_sim_value or controller_value == "wheel_velocity_controller")}], #suppose odom_publisher_node non lancé si diff/mecanum controleurs lancés avec enable_driver_odom_tf=true
+                    {'pub_tf': enable_driver_odom_tf_value and (not use_sim_value or controller_value == "wheel_velocity_controller")}], # si enable_driver_odom_tf=true avec controleur diff/mecanum lancé, les tf publiées sont celles du controleur plutot qu'odom_publisher_node
         remappings=[('cmd_vel', cmd_vel_topic)],  #controller/cmd_vel /diff_drive_controller/cmd_vel /mecanum_drive_controller/reference
         condition=IfCondition(str(not use_sim_value or controller_value == "wheel_velocity_controller" or odom0_from_odom_publisher_node).lower()) # peut etre enlevé pour comparaison des odometries issues du drive controller et d'odom_publisher_node
     ) #odom_raw ros_robot_controller/set_motor
@@ -374,13 +391,10 @@ def launch_setup(context):
     ##enable_driver_odom_tf == False and enable_real_odom_tf == False
     robot_localization_node = Node(
         package="robot_localization",
-        executable="ekf_node",
+        executable="ekf_node", # les bon parametres de l'ekf ont été spécifiés lors de la déclaration des paramètres avec un RewrittenYaml sur prior_ekf_config_path
         name="ekf_filter_node",
         parameters=[ekf_config_path,
-                    # {'odom0': odom0_topic}, #/odom_raw /diff_drive_controller/odom /mecanum_drive_controller/odometry
-                    # {'imu0': imu0_topic}, #/ros_robot_controller/imu_raw /imu_broadcaster/imu
-                    # {'publish_tf': True}
-                    ],
+                    ], # redéfinir des paramètres de ekf_config_path à ce niveau ne fonctionne pas, d'où l'utilisation d'un RewrittenYaml lors de la déclaration des paramètres
         output="screen",
         condition=IfCondition(str(not enable_driver_odom_tf_value and not enable_real_odom_tf_value).lower()),
     ) #/odometry/filtered /set_pose
@@ -420,50 +434,130 @@ def launch_setup(context):
 
     slam_toolbox_node = Node(
         package="slam_toolbox",
-        executable="async_slam_toolbox_node",
+        executable="async_slam_toolbox_node", 
         name="slam_toolbox",
         parameters=[slam_toolbox_config],
         output="screen",
+        condition=IfCondition(str(perception_framework == 'slam_toolbox').lower()),
+    ) # Dans le cas sync_slam_toolbox_node, il s'agit d'un lifecycle node donc lancer ensuite la commande 
+      # ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args -p use_sim_time:=use_sim autostart:=True node_names:="['slam_toolbox']"
+    
+    # A faire: les bonnes entrées sont à génerer dans le cas use_sim == False
+    rtabmap_node = Node(
+        package='rtabmap_slam',
+        executable='rtabmap',
+        name='rtabmap',
+        output='screen',
+        parameters=[{
+            'frame_id': 'base_footprint',
+            'odom_frame_id': 'odom',
+            'map_frame_id': 'map',
+
+            # Entrées RGB-D et LiDAR
+            'subscribe_depth': True,
+            'subscribe_rgb': True,
+            'subscribe_scan': True,
+
+            'approx_sync': True,
+            'sync_queue_size': 10,
+            'use_sim_time': use_sim,
+
+            # 0: Vision (RGB-D), 1: ICP (scan LiDAR), 2: Vision (RGB-D) + ICP (scan LiDAR) combinés
+            'Reg/Strategy': '2' if scan_matching else '0',
+
+            # Raffinement des liens successifs avec la stratégie d'enregistrement Vision + ICP
+            'RGBD/NeighborLinkRefining': 'true' if scan_matching else'false',
+
+            # Comparaison du scan courant avec plusieurs scans voisins fusionnés en sous-carte locale
+            'RGBD/ProximityPathMaxNeighbors': '5' if scan_matching else '0',
+
+            # Utilise l'odométrie externe comme initial guess pour les contraintes de proximité
+            'RGBD/ProximityOdomGuess': 'true' if scan_matching else 'false',
+
+            # ICP adapté à un LaserScan 2D
+            'Icp/PointToPlane': 'false',
+            'Icp/MaxCorrespondenceDistance': '0.1',
+            'Icp/Iterations': '30',
+            'Icp/VoxelSize': '0.0',
+            'Icp/CorrespondenceRatio': '0.2',
+
+            # Contraint le mouvement à x, y, yaw (robot terrestre)
+            'Reg/Force3DoF': 'true',
+
+            # Validation minimale des contraintes visuelles
+            'Vis/MinInliers': '15',
+
+            # Création des nœuds du graphe
+            'RGBD/AngularUpdate': '0.1',
+            'RGBD/LinearUpdate': '0.1',
+
+            # Recherche de fermetures de boucle locales
+            'RGBD/ProximityBySpace': 'true',
+
+            # Grille d’occupation toujours construite avec /scan
+            'Grid/Sensor': '0',
+            'Grid/FromDepth': 'false',
+            'Grid/RangeMax': '8.0',
+            'Grid/CellSize': '0.05',
+
+            # publication TF de map->odom
+            'publish_tf': True,
+        }],
+        remappings=[
+            ('rgb/image', '/depth_cam/image'),
+            ('depth/image', '/depth_cam/depth_image'),
+            ('rgb/camera_info', '/depth_cam/camera_info'),
+            ('scan', '/scan'),
+            ('odom', '/odometry/filtered'), # utilisation de l'odométrie externe
+            ('grid_map', '/map'), # ensuite utilisée par nav2
+        ],
+        arguments=['-d'], # Supprime la base RTAB-Map au démarrage
+        condition=IfCondition(str(perception_framework == 'rtabmap_slam').lower()),
     )
 
-    ##Utile uniquement pour sync_slam_toolbox_node
-    # slam_lifecycle_manager = Node(
-    #     package="nav2_lifecycle_manager",
-    #     executable="lifecycle_manager",
-    #     name="lifecycle_manager_slam",
-    #     output="screen",
-    #     parameters=[
-    #         {"use_sim_time": use_sim}, # plus robuste
-    #         {"autostart": True},
-    #         {"node_names": ["slam_toolbox"]},
-    #     ],
-    # )
-
-    # slam_lifecycle_manager_delayed = TimerAction(
-    #     period=12.0,
-    #     actions=[slam_lifecycle_manager],
-    # )
+    # A faire: les bonnes entrées sont à génerer dans le cas use_sim == False
+    rtabmap_viz_node = Node(
+        package='rtabmap_viz',
+        executable='rtabmap_viz',
+        name='rtabmap_viz',
+        output='screen',
+        parameters=[{
+            'frame_id': 'base_footprint',
+            'use_sim_time': use_sim,
+            'approx_sync': True,
+            'subscribe_scan': True,
+        }],
+        remappings=[
+            ('rgb/image', '/depth_cam/image'),
+            ('depth/image', '/depth_cam/depth_image'),
+            ('rgb/camera_info', '/depth_cam/camera_info'),
+            ('scan', '/scan'),
+            ('odom', '/odometry/filtered'),
+            ('grid_map', '/map'),
+        ],
+        condition=IfCondition(str(perception_framework == 'rtabmap_slam').lower()),
+    )
 
     nav2_launch = GroupAction([
-            SetRemap(src="cmd_vel", dst="cmd_vel_nav2"), # voir consequences #controller/cmd_vel /diff_drive_controller/cmd_vel /mecanum_drive_controller/reference
-            IncludeLaunchDescription(
-                    PythonLaunchDescriptionSource(
-                        PathJoinSubstitution([
-                            FindPackageShare("nav2_bringup"),
-                            "launch",
-                            "navigation_launch.py",
-                        ])
-                    ),
-                    launch_arguments={
-                        "use_sim_time": use_sim, # plus robuste
-                        "params_file": nav2_params,
-                        "autostart": "true",
-                    }.items(),
-            )
-            ])
+        SetRemap(src="cmd_vel", dst="cmd_vel_nav2"), # voir consequences #controller/cmd_vel /diff_drive_controller/cmd_vel /mecanum_drive_controller/reference
+        IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    PathJoinSubstitution([
+                        FindPackageShare("nav2_bringup"),
+                        "launch",
+                        "navigation_launch.py",
+                    ])
+                ),
+                launch_arguments={
+                    "use_sim_time": use_sim, # plus robuste
+                    "params_file": nav2_params,
+                    "autostart": "true",
+                }.items(),
+        )
+        ])
 
     nav2_delayed_launch = TimerAction(
-        period=12.0,
+        period=18.0,
         actions=[nav2_launch],
     )
 
@@ -510,6 +604,7 @@ def launch_setup(context):
         # camera_node,
         # yolov5_node,
         # object_tracker_node,
+        depth_cam_bridge,
         motors_state_gaz_bridge,
         mecanum_tf_relay,
         controllers_spawner,
@@ -522,6 +617,8 @@ def launch_setup(context):
         lidar_scan_bridge,
         ld19_node,
         slam_toolbox_node,
+        rtabmap_node,
+        rtabmap_viz_node,
         nav2_delayed_launch,
         twist_to_twist_stamped_bridge,
     ]
@@ -541,7 +638,8 @@ def generate_launch_description():
     enable_driver_odom_tf_arg = DeclareLaunchArgument('enable_driver_odom_tf', default_value='False', description='Whether the drive controller should publish the odom -> base transform instead of using transforms produced by sensor fusion')
     odom0_from_odom_publisher_node_arg = DeclareLaunchArgument('odom0_from_odom_publisher_node', default_value='False', description='When using robot_localization package, is the odometry source provided by odom_publisher_node or drive controller')
     enable_real_odom_tf_arg = DeclareLaunchArgument('enable_real_odom_tf', default_value='False', description='Whether the Gazebo simulation should publish the odom -> base transform instead of using transforms produced by sensor fusion')
-    scan_matching_arg = DeclareLaunchArgument('scan_matching', default_value='True', description='Using slam_toolbox.yaml or slam_toolbox_no_scan_matching.yaml')
+    perception_framework_arg = DeclareLaunchArgument('perception_framework', default_value='slam_toolbox', choices=['rtabmap_slam','slam_toolbox'], description='Perception framework used')
+    scan_matching_arg = DeclareLaunchArgument('scan_matching', default_value='True', description='Using scan matching or not')
 
     return LaunchDescription([
         use_sim_arg,
@@ -556,6 +654,7 @@ def generate_launch_description():
         enable_driver_odom_tf_arg,
         odom0_from_odom_publisher_node_arg,
         enable_real_odom_tf_arg,
+        perception_framework_arg,
         scan_matching_arg,
         SetParameter(name="use_sim_time", value=use_sim),
         OpaqueFunction(function = launch_setup),

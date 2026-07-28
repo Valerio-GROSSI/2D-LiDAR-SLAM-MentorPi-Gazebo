@@ -183,6 +183,15 @@
     <axis xyz="0 0 0"/>
   </joint>
 
+  <link name="depth_cam_optical_frame"/>
+
+  <joint name="depth_cam_optical_joint" type="fixed">
+    <parent link="depth_cam"/>
+    <child link="depth_cam_optical_frame"/>
+    <!-- rotation standard optique: roll=-pi/2, pitch=0, yaw=-pi/2 -->
+    <origin xyz="0 0 0" rpy="-1.5707963267948966 0 -1.5707963267948966"/>
+  </joint>
+
   <link name="lidar_frame">
     <inertial>
       <origin rpy="0 0 0" xyz="8.65086404290248E-05 9.02624664517182E-05 -0.0183546134707293"/>
