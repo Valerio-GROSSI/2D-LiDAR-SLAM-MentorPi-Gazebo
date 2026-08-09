@@ -2,7 +2,7 @@
 
 Update: The project is currently being expanded to achieve complete coverage of unknown environments (similar to how robot vacuums operate).
 
-This initial project focuses on evaluating different localization and mapping approaches for a mobile robot, both in simulation and on real hardware.
+The initial project focused on evaluating different localization and mapping approaches for a mobile robot, both in simulation and on real hardware.
 
 The methods explored include:
 
@@ -33,7 +33,6 @@ A demonstration video is available on YouTube: [2D LiDAR SLAM on a Simulated Mob
 </p>
 
 <br>
-
 <br>
 
 <p align="center">
