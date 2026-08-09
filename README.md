@@ -36,7 +36,7 @@ A demonstration video is available on YouTube: [2D LiDAR SLAM on a Simulated Mob
 <br>
 
 <p align="center">
-  <b> Coverage task of the environment with nav2  </b><br>
+  <b> Autonomous Environment Coverage with Nav2  </b><br>
   <img src="./coverage_task_viz.png" width="100%" />
 </p>
 
