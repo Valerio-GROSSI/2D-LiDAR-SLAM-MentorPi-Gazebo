@@ -1,6 +1,8 @@
 # 2D LiDAR SLAM MentorPi Gazebo
 
-This project focuses on evaluating different localization and mapping approaches for a mobile robot, both in simulation and on real hardware.
+Update: The project is currently being expanded to achieve complete coverage of unknown environments (similar to how robot vacuums operate).
+
+This initial project focuses on evaluating different localization and mapping approaches for a mobile robot, both in simulation and on real hardware.
 
 The methods explored include:
 
@@ -32,3 +34,11 @@ A demonstration video is available on YouTube: [2D LiDAR SLAM on a Simulated Mob
 
 <br>
 
+<br>
+
+<p align="center">
+  <b> Coverage task of the environment with nav2  </b><br>
+  <img src="./coverage_task_viz.png" width="100%" />
+</p>
+
+<br>
