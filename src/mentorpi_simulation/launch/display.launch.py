@@ -47,6 +47,12 @@ def launch_setup(context):
     # enable_real_odom_tf = LaunchConfiguration("enable_real_odom_tf")
     perception_framework = LaunchConfiguration("perception_framework").perform(context).lower()
     scan_matching = (LaunchConfiguration("scan_matching").perform(context).lower() == "true")
+    slam_toolbox_database_path = LaunchConfiguration("slam_toolbox_database_path").perform(context)
+    rtabmap_database_path = LaunchConfiguration("rtabmap_database_path").perform(context)
+    amcl_map_path = LaunchConfiguration('amcl_map_path').perform(context)
+
+    auto_coverage = LaunchConfiguration('auto_coverage')
+    coverage_params = PathJoinSubstitution([FindPackageShare('mentorpi_simulation'), 'config', 'coverage.yaml'])
 
     use_sim_value = (LaunchConfiguration("use_sim").perform(context).lower() == "true")
     controller_value = LaunchConfiguration('controller').perform(context)
@@ -107,6 +113,9 @@ def launch_setup(context):
         "enable_real_odom_tf": enable_real_odom_tf_value,
         "perception_framework": perception_framework,
         "scan_matching": scan_matching,
+        "slam_toolbox_database_path": slam_toolbox_database_path,
+        "rtabmap_database_path": rtabmap_database_path,
+        "amcl_map_path": amcl_map_path,
         })
 
     prior_controller_config_path = PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"config","controller.yaml"])
@@ -226,7 +235,7 @@ def launch_setup(context):
                    "-y",
                    LaunchConfiguration("y", default="0.00"),
                    "-z",
-                   LaunchConfiguration("z", default="0.00"),
+                   LaunchConfiguration("z", default="0.10"),
                    "-R",
                    LaunchConfiguration("roll", default="0.00"),
                    "-P",
@@ -432,87 +441,125 @@ def launch_setup(context):
         condition=UnlessCondition(use_sim),
     )
 
+    slam_toolbox_enabled = perception_framework in ('slam_toolbox', 'slam_toolbox_localization',)
+    slam_toolbox_localization = (perception_framework == 'slam_toolbox_localization')
+
+    slam_toolbox_mode_parameters = {'mode':'localization' if slam_toolbox_localization else 'mapping',}
+
+    if slam_toolbox_localization:
+        slam_toolbox_mode_parameters.update({
+        'map_file_name': slam_toolbox_database_path,
+        # 'map_start_at_dock': True, #non supported #puis 2D Pose Estimate éventuellement
+        # Optionnel si la position initiale est approximativement connue:
+        'map_start_pose': [0.0, 0.0, 0.0], #puis 2D ose Estimate éventuellement
+    })
+
     slam_toolbox_node = Node(
-        package="slam_toolbox",
-        executable="async_slam_toolbox_node", 
-        name="slam_toolbox",
-        parameters=[slam_toolbox_config],
-        output="screen",
-        condition=IfCondition(str(perception_framework == 'slam_toolbox').lower()),
+        package='slam_toolbox',
+        executable=('localization_slam_toolbox_node' if slam_toolbox_localization else 'async_slam_toolbox_node'),
+        name='slam_toolbox',
+        output='screen',
+        parameters=[
+            slam_toolbox_config,
+            slam_toolbox_mode_parameters,
+        ],
+    condition=IfCondition(str(slam_toolbox_enabled).lower()),
     ) # Dans le cas sync_slam_toolbox_node, il s'agit d'un lifecycle node donc lancer ensuite la commande 
-      # ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args -p use_sim_time:=use_sim autostart:=True node_names:="['slam_toolbox']"
-    
+      # ros2 run nav2_lifecycle_manager lifecycle_manager --ros-args -p use_sim_time:=use_sim autostart:=True node_names:="['slam_toolbox_node']"
+
+    # ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph "{filename: '.../src/mentorpi_simulation/maps/slam_toolbox_database/slam_toolbox_database'}"
+    # ros2 run nav2_map_server map_saver_cli -f .../src/mentorpi_simulation/maps/map/map
+
+    rtabmap_enabled = perception_framework in ('rtabmap_slam', 'rtabmap_localization')
+    rtabmap_localization = (perception_framework == 'rtabmap_localization')
+
+    rtabmap_parameters = {
+        # Repères
+        'frame_id': 'base_footprint',
+        'odom_frame_id': 'odom',
+        'map_frame_id': 'map',
+
+        # Base RTAB-Map utilisée par les deux modes
+        'database_path': rtabmap_database_path,
+
+        # Entrées RGB-D et LiDAR
+        'subscribe_depth': True,
+        'subscribe_rgb': True,
+        'subscribe_scan': True,
+
+        'approx_sync': True,
+        'sync_queue_size': 10,
+        'use_sim_time': use_sim,
+
+        # 0: Vision (RGB-D), 1: ICP (scan LiDAR), 2: Vision (RGB-D) + ICP (scan LiDAR) combinés
+        'Reg/Strategy': '2' if scan_matching else '0',
+
+        # Raffinement LiDAR
+        'RGBD/NeighborLinkRefining': 'true' if scan_matching else 'false',
+
+        'RGBD/ProximityPathMaxNeighbors': '5' if scan_matching else '0',
+
+        'RGBD/ProximityOdomGuess': 'true' if scan_matching else 'false',
+
+        # Recherche de fermetures de boucle/proximité
+        'RGBD/ProximityBySpace': 'true',
+
+        # ICP adapté à un LaserScan 2D
+        'Icp/PointToPlane': 'false',
+        'Icp/MaxCorrespondenceDistance': '0.1',
+        'Icp/Iterations': '30',
+        'Icp/VoxelSize': '0.0',
+        'Icp/CorrespondenceRatio': '0.2',
+
+        # Robot terrestre
+        'Reg/Force3DoF': 'true',
+
+        # Validation des contraintes visuelles
+        'Vis/MinInliers': '15',
+
+        # Seuils de création/traitement des signatures
+        'RGBD/AngularUpdate': '0.1',
+        'RGBD/LinearUpdate': '0.1',
+
+        # Grille d’occupation 2D créée à partir du LiDAR
+        'Grid/Sensor': '0',
+        'Grid/FromDepth': 'false',
+        'Grid/RangeMax': '8.0',
+        'Grid/CellSize': '0.05',
+
+        # Publication de map -> odom
+        'publish_tf': True,
+
+        'Mem/IncrementalMemory': 'false' if rtabmap_localization else 'true',
+        'Mem/InitWMWithAllNodes': 'true' if rtabmap_localization else 'false',
+
+        # Le robot redémarre physiquement près de l’endroit où la session précédente s’est terminée == false
+        'RGBD/StartAtOrigin': 'true',
+
+        # Facultatif : pose initiale explicitement connue
+        # 'initial_pose': '-1 -1 0.0 0.0 0.0 0.50',
+    }
+
+    rtabmap_remappings = [
+        ('rgb/image', '/depth_cam/image'),
+        ('depth/image', '/depth_cam/depth_image'),
+        ('rgb/camera_info', '/depth_cam/camera_info'),
+        ('scan', '/scan'),
+        ('grid_map', '/map'),
+        ('initialpose', '/initialpose'),
+        # ('odom', '/odometry/filtered'), # si l'on souhaite utiliser cette source pour les tf odom <-> base_footprint
+    ]
+
     # A faire: les bonnes entrées sont à génerer dans le cas use_sim == False
     rtabmap_node = Node(
         package='rtabmap_slam',
         executable='rtabmap',
         name='rtabmap',
         output='screen',
-        parameters=[{
-            'frame_id': 'base_footprint',
-            'odom_frame_id': 'odom',
-            'map_frame_id': 'map',
-
-            # Entrées RGB-D et LiDAR
-            'subscribe_depth': True,
-            'subscribe_rgb': True,
-            'subscribe_scan': True,
-
-            'approx_sync': True,
-            'sync_queue_size': 10,
-            'use_sim_time': use_sim,
-
-            # 0: Vision (RGB-D), 1: ICP (scan LiDAR), 2: Vision (RGB-D) + ICP (scan LiDAR) combinés
-            'Reg/Strategy': '2' if scan_matching else '0',
-
-            # Raffinement des liens successifs avec la stratégie d'enregistrement Vision + ICP
-            'RGBD/NeighborLinkRefining': 'true' if scan_matching else'false',
-
-            # Comparaison du scan courant avec plusieurs scans voisins fusionnés en sous-carte locale
-            'RGBD/ProximityPathMaxNeighbors': '5' if scan_matching else '0',
-
-            # Utilise l'odométrie externe comme initial guess pour les contraintes de proximité
-            'RGBD/ProximityOdomGuess': 'true' if scan_matching else 'false',
-
-            # ICP adapté à un LaserScan 2D
-            'Icp/PointToPlane': 'false',
-            'Icp/MaxCorrespondenceDistance': '0.1',
-            'Icp/Iterations': '30',
-            'Icp/VoxelSize': '0.0',
-            'Icp/CorrespondenceRatio': '0.2',
-
-            # Contraint le mouvement à x, y, yaw (robot terrestre)
-            'Reg/Force3DoF': 'true',
-
-            # Validation minimale des contraintes visuelles
-            'Vis/MinInliers': '15',
-
-            # Création des nœuds du graphe
-            'RGBD/AngularUpdate': '0.1',
-            'RGBD/LinearUpdate': '0.1',
-
-            # Recherche de fermetures de boucle locales
-            'RGBD/ProximityBySpace': 'true',
-
-            # Grille d’occupation toujours construite avec /scan
-            'Grid/Sensor': '0',
-            'Grid/FromDepth': 'false',
-            'Grid/RangeMax': '8.0',
-            'Grid/CellSize': '0.05',
-
-            # publication TF de map->odom
-            'publish_tf': True,
-        }],
-        remappings=[
-            ('rgb/image', '/depth_cam/image'),
-            ('depth/image', '/depth_cam/depth_image'),
-            ('rgb/camera_info', '/depth_cam/camera_info'),
-            ('scan', '/scan'),
-            ('odom', '/odometry/filtered'), # utilisation de l'odométrie externe
-            ('grid_map', '/map'), # ensuite utilisée par nav2
-        ],
-        arguments=['-d'], # Supprime la base RTAB-Map au démarrage
-        condition=IfCondition(str(perception_framework == 'rtabmap_slam').lower()),
+        parameters=[rtabmap_parameters],
+        remappings=rtabmap_remappings,
+        arguments=[] if rtabmap_localization else ['-d'],
+        condition=IfCondition(str(rtabmap_enabled).lower()),
     )
 
     # A faire: les bonnes entrées sont à génerer dans le cas use_sim == False
@@ -521,24 +568,48 @@ def launch_setup(context):
         executable='rtabmap_viz',
         name='rtabmap_viz',
         output='screen',
+
         parameters=[{
             'frame_id': 'base_footprint',
+            'odom_frame_id': 'odom',
+            'map_frame_id': 'map',
+
             'use_sim_time': use_sim,
-            'approx_sync': True,
+
+            'subscribe_depth': True,
+            'subscribe_rgb': True,
             'subscribe_scan': True,
+
+            'approx_sync': True,
+            'sync_queue_size': 10,
         }],
-        remappings=[
-            ('rgb/image', '/depth_cam/image'),
-            ('depth/image', '/depth_cam/depth_image'),
-            ('rgb/camera_info', '/depth_cam/camera_info'),
-            ('scan', '/scan'),
-            ('odom', '/odometry/filtered'),
-            ('grid_map', '/map'),
-        ],
-        condition=IfCondition(str(perception_framework == 'rtabmap_slam').lower()),
+
+        remappings=rtabmap_remappings,
+
+        condition=IfCondition(str(rtabmap_enabled).lower()),
     )
 
-    nav2_launch = GroupAction([
+    # ros2 run nav2_map_server map_saver_cli -f .../src/mentorpi_simulation/maps/map/map
+
+    nav2_localization_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('nav2_bringup'),
+                'launch',
+                'localization_launch.py',
+            ])
+        ),
+        launch_arguments={
+            'use_sim_time': use_sim,
+            'params_file': nav2_params,
+            'map': amcl_map_path,
+            'autostart': 'true',
+        }.items(),
+        condition=IfCondition(str(perception_framework == 'amcl').lower()),
+    ) 
+    # ros2 service call /reinitialize_global_localization \std_srvs/srv/Empty "{}"
+
+    nav2_navigation_launch = GroupAction([
         SetRemap(src="cmd_vel", dst="cmd_vel_nav2"), # voir consequences #controller/cmd_vel /diff_drive_controller/cmd_vel /mecanum_drive_controller/reference
         IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
@@ -556,9 +627,14 @@ def launch_setup(context):
         )
         ])
 
-    nav2_delayed_launch = TimerAction(
-        period=18.0,
-        actions=[nav2_launch],
+    delayed_nav2_localization_launch = TimerAction(
+        period=5.0,
+        actions=[nav2_localization_launch],
+    )
+
+    delayed_nav2_navigation_launch = TimerAction(
+        period=15.0,
+        actions=[nav2_navigation_launch],
     )
 
     twist_to_twist_stamped_bridge = Node(
@@ -569,6 +645,23 @@ def launch_setup(context):
                     ("/cmd_vel_stamped", cmd_vel_topic)],
         output="screen",
     )
+    
+    coverage_node = Node(
+        package='mentorpi_simulation',
+        executable='online_coverage',
+        name='online_coverage',
+        output='screen',
+        parameters=[coverage_params, 
+                {'use_sim_time': use_sim,
+                'enabled_on_startup': auto_coverage,}
+                ],
+        condition=IfCondition(auto_coverage),
+    )
+
+    delayed_coverage_node = TimerAction(period=20.0, actions=[coverage_node])
+
+    # ros2 service call /coverage/set_enabled std_srvs/srv/SetBool "{data: true}"
+    # ros2 service call /coverage/set_enabled std_srvs/srv/SetBool "{data: false}"
 
 
     ##DECLARATION DES GROUPES D'ACTIONS
@@ -585,7 +678,8 @@ def launch_setup(context):
             robot_localization_node,
             ld19_node,
             slam_toolbox_node,
-            nav2_delayed_launch,
+            delayed_nav2_localization_launch,
+            delayed_nav2_navigation_launch,
             twist_to_twist_stamped_bridge,
         ]
     )
@@ -619,18 +713,25 @@ def launch_setup(context):
         slam_toolbox_node,
         rtabmap_node,
         rtabmap_viz_node,
-        nav2_delayed_launch,
+        delayed_nav2_localization_launch,
+        delayed_nav2_navigation_launch,
         twist_to_twist_stamped_bridge,
+        delayed_coverage_node,
     ]
 
 def generate_launch_description():
     use_sim = LaunchConfiguration('use_sim')
 
+    launch_directory = os.path.dirname(os.path.realpath(__file__))
+    default_slam_toolbox_database_path = os.path.normpath(os.path.join(launch_directory,'..','maps','slam_toolbox_database','slam_toolbox_database'))
+    default_rtabmap_database_path = os.path.normpath(os.path.join(launch_directory,'..','maps','rtabmap_database','rtabmap_database.db',))
+    default_amcl_map_path = os.path.normpath(os.path.join(launch_directory,'..','maps','map','map.yaml',))
+
     use_sim_arg = DeclareLaunchArgument('use_sim', default_value='true')
     use_rviz_arg = DeclareLaunchArgument('use_rviz', default_value='true')
-    rviz_config_arg = DeclareLaunchArgument('rviz_config', default_value=PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"rviz","config.rviz"]))
+    rviz_config_arg = DeclareLaunchArgument('rviz_config', default_value=PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"rviz","nav2_default_view.rviz"]))
     declare_headless_arg = DeclareLaunchArgument('headless', default_value='False', description='Run Gazebo Ignition in the headless mode')
-    world_config_arg = DeclareLaunchArgument('world_config', default_value=PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"world","empty_with_plugins_obstacles.sdf"]), description='Path to SDF world file')
+    world_config_arg = DeclareLaunchArgument('world_config', default_value=PathJoinSubstitution([FindPackageShare("mentorpi_simulation"),"world","obstacles.sdf"]), description='Path to SDF world file')
     classes_arg = DeclareLaunchArgument('classes', default_value='["person", "cat", "pizza"]', description='List of classes to detect (default: ["person", "cat", "pizza"]), put [] for all classes')
     target_class_name_arg = DeclareLaunchArgument('target_class_name', default_value='person', description='Target class name for object tracking (default: "person")')
     model_arg = DeclareLaunchArgument('model', default_value='differential', choices=['differential','mecanum'], description='Navigation model for odom_publisher_node')
@@ -638,8 +739,12 @@ def generate_launch_description():
     enable_driver_odom_tf_arg = DeclareLaunchArgument('enable_driver_odom_tf', default_value='False', description='Whether the drive controller should publish the odom -> base transform instead of using transforms produced by sensor fusion')
     odom0_from_odom_publisher_node_arg = DeclareLaunchArgument('odom0_from_odom_publisher_node', default_value='False', description='When using robot_localization package, is the odometry source provided by odom_publisher_node or drive controller')
     enable_real_odom_tf_arg = DeclareLaunchArgument('enable_real_odom_tf', default_value='False', description='Whether the Gazebo simulation should publish the odom -> base transform instead of using transforms produced by sensor fusion')
-    perception_framework_arg = DeclareLaunchArgument('perception_framework', default_value='slam_toolbox', choices=['rtabmap_slam','slam_toolbox'], description='Perception framework used')
-    scan_matching_arg = DeclareLaunchArgument('scan_matching', default_value='True', description='Using scan matching or not')
+    perception_framework_arg = DeclareLaunchArgument('perception_framework', default_value='slam_toolbox', choices=['rtabmap_slam','rtabmap_localization','slam_toolbox','slam_toolbox_localization','amcl'], description='Perception framework used')
+    scan_matching_arg = DeclareLaunchArgument('scan_matching', default_value='True', description='Using scan matching or not (for slam_toolbox and rtabmap)')
+    slam_toolbox_database_path_arg = DeclareLaunchArgument('slam_toolbox_database_path', default_value=default_slam_toolbox_database_path, description='Path to the SLAM Toolbox database')
+    rtabmap_database_path_arg = DeclareLaunchArgument('rtabmap_database_path', default_value=default_rtabmap_database_path, description='Path to the RTAB-Map database')
+    amcl_map_path_arg = DeclareLaunchArgument('amcl_map_path', default_value=default_amcl_map_path, description='Path to the AMCL map file')
+    auto_coverage_arg = DeclareLaunchArgument('auto_coverage', default_value='false', choices=['true', 'false'], description='Run online complete coverage with mapping and Nav2')
 
     return LaunchDescription([
         use_sim_arg,
@@ -656,6 +761,10 @@ def generate_launch_description():
         enable_real_odom_tf_arg,
         perception_framework_arg,
         scan_matching_arg,
+        slam_toolbox_database_path_arg,
+        rtabmap_database_path_arg,
+        amcl_map_path_arg,
+        auto_coverage_arg,
         SetParameter(name="use_sim_time", value=use_sim),
         OpaqueFunction(function = launch_setup),
     ])

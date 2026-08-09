@@ -4,7 +4,9 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
         - /TF1/Frames1
+        - /Map1/Status1
       Splitter Ratio: 0.5
     Tree Height: 549
   - Class: rviz_common/Selection
@@ -57,6 +59,8 @@ Visualization Manager:
           Value: false
         depth_cam:
           Value: false
+        depth_cam_optical_frame:
+          Value: true
         imu_link:
           Value: false
         lidar_frame:
@@ -81,7 +85,8 @@ Visualization Manager:
           base_footprint:
             base_link:
               depth_cam:
-                {}
+                depth_cam_optical_frame:
+                  {}
               imu_link:
                 {}
               lidar_frame:
@@ -128,6 +133,10 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        depth_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         imu_link:
           Alpha: 1
           Show Axes: false
@@ -165,6 +174,27 @@ Visualization Manager:
       Update Interval: 0
       Value: true
       Visual Enabled: true
+    - Alpha: 0.699999988079071
+      Class: rviz_default_plugins/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map
+      Update Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /map_updates
+      Use Timestamp: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -247,5 +277,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1200
-  X: 27
-  Y: 208
+  X: 318
+  Y: 197

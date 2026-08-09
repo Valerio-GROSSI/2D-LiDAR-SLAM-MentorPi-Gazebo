@@ -114,7 +114,10 @@ local_costmap:
 
       robot_radius: 0.18
 
-      plugins: ["obstacle_layer", "inflation_layer"]
+      plugins:
+        - obstacle_layer
+        # - stvl_layer
+        - inflation_layer
 
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
@@ -131,6 +134,57 @@ local_costmap:
           raytrace_min_range: 0.05
           obstacle_max_range: 6.0
           obstacle_min_range: 0.05
+
+      # # Nuage de points de la caméra de profondeur
+      # stvl_layer:
+      #   plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
+      #   enabled: true
+
+      #   # Modèle temporel
+      #   voxel_decay: 3.0
+      #   decay_model: 0
+
+      #   # Grille 3D
+      #   voxel_size: 0.10
+      #   origin_z: 0.0
+      #   max_obstacle_height: 1.50
+
+      #   # Projection des voxels dans la costmap 2D
+      #   track_unknown_space: false
+      #   unknown_threshold: 15
+      #   mark_threshold: 0
+      #   update_footprint_enabled: true
+      #   combination_method: 1
+
+      #   transform_tolerance: 0.3
+
+      #   # Active temporairement la publication pour le diagnostic
+      #   publish_voxel_map: true
+
+      #   # Navigation seulement, pas de sauvegarde d’une carte 3D
+      #   mapping_mode: false
+      #   map_save_duration: 60.0
+
+      #   observation_sources: depth_points
+
+      #   depth_points:
+      #     topic: /depth_cam/points
+      #     data_type: "PointCloud2"
+
+      #     marking: true
+      #     clearing: true
+
+      #     obstacle_range: 3.0
+      #     min_obstacle_height: 0.05
+      #     max_obstacle_height: 1.50
+
+      #     expected_update_rate: 0.0
+      #     observation_persistence: 0.0
+      #     inf_is_valid: false
+
+      #     filter: "passthrough"
+      #     voxel_min_points: 1
+      #     clear_after_reading: true
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
@@ -337,3 +391,10 @@ lifecycle_manager_navigation:
         "waypoint_follower",
         # "docking_server"
       ]
+
+map_server:
+  ros__parameters:
+    use_sim_time: true
+
+    # Valeur remplacée automatiquement par l’argument launch "map"
+    yaml_filename: ""

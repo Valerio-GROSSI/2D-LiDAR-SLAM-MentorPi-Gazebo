@@ -49,6 +49,7 @@ setup(
             'joystick_control = joystick_control.joystick_control_node:main',
             'motors_state_gaz_bridge = motors_state_gaz_bridge.motors_state_gaz_bridge:main',
             'twist_to_twist_stamped = twist_to_twist_stamped.twist_to_twist_stamped:main',
+            'online_coverage = online_coverage.online_coverage_node:main',
             ],
         },
 )
