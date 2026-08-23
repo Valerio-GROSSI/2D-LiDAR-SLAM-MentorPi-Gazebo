@@ -29,15 +29,10 @@ ros2 launch mentorpi_simulation display.launch.py
 
 A demonstration video is available on YouTube: [2D LiDAR SLAM on a Simulated Mobile Robot](https://www.youtube.com/watch?v=UPGaf2nS698)
 
-<br>
-
 <p align="center">
   <b> 2D LiDAR SLAM on Kalman inputs </b><br>
   <img src="./slam_demo.gif" width="100%" />
 </p>
-
-<br>
-<br>
 
 <p align="center">
   <b> Autonomous Environment Coverage with Nav2  </b><br>
