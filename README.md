@@ -1,8 +1,12 @@
-# 2D LiDAR SLAM MentorPi Gazebo
+# MentorPi-Mecanum-Envs-Coverage
 
-Update: The project is currently being expanded to achieve complete coverage of unknown environments (similar to how robot vacuums operate).
+The first part of the project was focused on evaluating different localization and mapping approaches for a mobile robot, both in simulation and on real hardware.
+The project was then expanded to achieve complete coverage of unknown environments (similar to how robot vacuums operate).
 
-The initial project focused on evaluating different localization and mapping approaches for a mobile robot, both in simulation and on real hardware.
+The robot used in this project is the Hiwonder MentorPi Mecanum, configured and used as a differential-drive robot.
+
+The current stage involves testing the system on the robot's actual hardware, using the motor drivers and onboard sensors.
+
 
 The methods explored include:
 
@@ -11,9 +15,7 @@ The methods explored include:
 - Kalman filtering for sensor fusion between differential odometry and IMU measurements, with 3D point accumulation for map building
 - Kalman filtering for sensor fusion between differential odometry and IMU measurements, used as input to a SLAM algorithm
 
-The robot used in this project is the Hiwonder MentorPi Mecanum, configured and used as a differential-drive robot. The simulation environment is Gazebo.
 
-The current stage involves testing the system on the robot's actual hardware, using the motor drivers and onboard sensors.
 
 ## How to Run
 
