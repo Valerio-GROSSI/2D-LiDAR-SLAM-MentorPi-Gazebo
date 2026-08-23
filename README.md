@@ -15,7 +15,7 @@ The methods explored include:
 - Kalman filtering for sensor fusion between differential odometry and IMU measurements, with 3D point accumulation for map building
 - Kalman filtering for sensor fusion between differential odometry and IMU measurements, used as input to a SLAM algorithm
 
-
+<br>
 
 ## How to Run
 
@@ -23,7 +23,9 @@ The methods explored include:
 ros2 launch mentorpi_simulation display.launch.py
 ```
 
-## Results
+<br>
+
+## Results - simulation
 
 A demonstration video is available on YouTube: [2D LiDAR SLAM on a Simulated Mobile Robot](https://www.youtube.com/watch?v=UPGaf2nS698)
 
